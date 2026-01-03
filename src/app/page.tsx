@@ -1,65 +1,170 @@
+"use client";
+
 import Image from "next/image";
+import { getIgdbToken, getTwitchStreams, searchIgdbAction } from "./actions";
+import { useEffect, useState } from "react";
+import type { GameOption, Stream } from "../../types";
+import { useLocalStorage } from "./hooks";
+
+async function searchIgdb(searchTerm: string, authToken: string) {
+  const formData = new FormData();
+  formData.append("searchTerm", searchTerm);
+  formData.append("authToken", authToken);
+  const res = await searchIgdbAction(formData);
+  if (res) {
+    console.log("searched ");
+  } else {
+    console.log("searched failed");
+  }
+  return res;
+}
+
+async function getStreams(gameIdsParam: string) {
+  const formData = new FormData();
+  formData.append("gameIds", gameIdsParam);
+  const res = await getTwitchStreams(formData);
+  if (res) {
+    console.log("aaa ");
+  } else {
+    console.log("wwww");
+  }
+  return res;
+}
 
 export default function Home() {
+  const [token, setToken] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [options, setOptions] = useState<GameOption[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
+
+  const [followedGames, setFollowedGames] = useLocalStorage<GameOption[]>(
+    "followedGames",
+    []
+  );
+  const [bannedTags, setBannedTags] = useLocalStorage<string[]>(
+    "followedGames",
+    []
+  );
+
+  useEffect(() => {
+    async function fetchToken() {
+      const tokenRes = await getIgdbToken();
+      setToken(tokenRes);
+    }
+
+    fetchToken();
+  }, []);
+
+  const handleSearch = async () => {
+    const res = await searchIgdb(searchTerm, token);
+    setOptions(res || []);
+  };
+
+  const handleStreamGet = async () => {
+    const ids = followedGames.map((x) => x.id);
+    const idString = "igdb_id=" + ids.join("&igdb_id=");
+    const res = await getStreams(idString);
+    console.log(res);
+    setStreams(res);
+  };
+
+  const toggleFollow = (clickedGame: GameOption) => {
+    if (followedGames.some((game) => game.id === clickedGame.id)) {
+      setFollowedGames(followedGames.filter((x) => x.id !== clickedGame.id));
+    } else {
+      setFollowedGames((prev) => [...prev, clickedGame]);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div>
+      <div>
+        <div>
+          <div>
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <button onClick={() => handleSearch()} disabled={!token}>
+              Search gaems
+            </button>
+
+            <button onClick={() => handleStreamGet()}>Get streams</button>
+
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <hr />
+
+          <div className="flex gap-2 flex-wrap">
+            {streams.map((x, i) => {
+              return (
+                <div key={x.user_id} className="w-min">
+                  <a key={i} href={"https://www.twitch.tv/" + x.user_login}>
+                    <Image
+                      src={x.thumbnail_url.replace(
+                        "{width}x{height}",
+                        "320x180"
+                      )}
+                      width={320}
+                      height={180}
+                      alt={x.user_name}
+                    />
+                  </a>
+
+                  <div>
+                    {x.user_name} ({x.viewer_count} viewers)
+                  </div>
+                  <div>{x.game_name}</div>
+                  <div>
+                    {x.language}, {x.tags.join(", ")}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <hr />
+
+          {followedGames.map((x, i) => {
+            const years = x.release_dates?.map((r: { y: number }) => r.y) || [];
+            const initialYear = Math.min(...years);
+            return (
+              <div
+                key={i}
+                onClick={() => toggleFollow(x)}
+                className={`cursor-pointer w-fit text-green-500`}
+              >
+                {`${x.name} (${initialYear})`}
+              </div>
+            );
+          })}
+
+          <hr />
+
+          {options.map((x, i) => {
+            const years = x.release_dates?.map((r: { y: number }) => r.y) || [];
+            const initialYear = Math.min(...years);
+            return (
+              <div
+                key={i}
+                onClick={() => toggleFollow(x)}
+                className={`cursor-pointer w-fit ${
+                  followedGames.some((game) => game.id === x.id)
+                    ? "text-green-500"
+                    : ""
+                }`}
+              >
+                {`${x.name} (${initialYear})`}
+              </div>
+            );
+          })}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
