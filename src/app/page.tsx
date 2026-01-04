@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { getTwitchStreams } from "./actions";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import type { GameOption, SimpleGame, Stream } from "../../types";
 import { useNextQueryParams } from "./hooks";
 
@@ -97,64 +97,66 @@ export default function Home() {
   };
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <div>
+    <Suspense>
+      <ThemeProvider theme={darkTheme}>
         <div>
           <div>
             <div>
-              <SearchModal
-                followedGames={followedGames}
-                searchGameClick={handleSearchedGameClick}
-                followedGameClick={handleFollowedGameClick}
-              />
+              <div>
+                <SearchModal
+                  followedGames={followedGames}
+                  searchGameClick={handleSearchedGameClick}
+                  followedGameClick={handleFollowedGameClick}
+                />
 
-              <button onClick={() => handleStreamGet()}>Get streams</button>
-            </div>
+                <button onClick={() => handleStreamGet()}>Get streams</button>
+              </div>
 
-            <hr />
+              <hr />
 
-            <div className="flex gap-2 flex-wrap">
-              {streams.map((x, i) => {
-                return (
-                  <div key={x.user_id} className="w-min">
-                    <a key={i} href={"https://www.twitch.tv/" + x.user_login}>
-                      <Image
-                        src={x.thumbnail_url.replace(
-                          "{width}x{height}",
-                          "320x180"
-                        )}
-                        width={320}
-                        height={180}
-                        alt={x.user_name}
-                      />
-                    </a>
+              <div className="flex gap-2 flex-wrap">
+                {streams.map((x, i) => {
+                  return (
+                    <div key={x.user_id} className="w-min">
+                      <a key={i} href={"https://www.twitch.tv/" + x.user_login}>
+                        <Image
+                          src={x.thumbnail_url.replace(
+                            "{width}x{height}",
+                            "320x180"
+                          )}
+                          width={320}
+                          height={180}
+                          alt={x.user_name}
+                        />
+                      </a>
 
-                    <div className="text-sm">{x.title}</div>
+                      <div className="text-sm">{x.title}</div>
 
-                    <div className="text-base text-cyan-500">
-                      {x.user_name} ({x.viewer_count} viewers)
+                      <div className="text-base text-cyan-500">
+                        {x.user_name} ({x.viewer_count} viewers)
+                      </div>
+
+                      <div className="text-base">{x.game_name}</div>
+
+                      <div className="flex gap-1 flex-wrap">
+                        {x.tags.map((tag) => {
+                          return (
+                            <Chip
+                              key={tag}
+                              label={tag}
+                              onDelete={() => handleTagBlackListToggle(tag)}
+                            />
+                          );
+                        })}
+                      </div>
                     </div>
-
-                    <div className="text-base">{x.game_name}</div>
-
-                    <div className="flex gap-1 flex-wrap">
-                      {x.tags.map((tag) => {
-                        return (
-                          <Chip
-                            key={tag}
-                            label={tag}
-                            onDelete={() => handleTagBlackListToggle(tag)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </ThemeProvider>
+      </ThemeProvider>
+    </Suspense>
   );
 }
