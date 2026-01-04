@@ -1,6 +1,9 @@
-export type GameOption = {
+export type SimpleGame = {
   id: number;
   name: string;
+};
+
+export type GameOption = SimpleGame & {
   release_dates: Array<{
     y: number;
     id: number;

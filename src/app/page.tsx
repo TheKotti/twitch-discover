@@ -1,23 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { getIgdbToken, getTwitchStreams, searchIgdbAction } from "./actions";
-import { useEffect, useState } from "react";
-import type { GameOption, Stream } from "../../types";
-import { useLocalStorage } from "./hooks";
+import { getTwitchStreams } from "./actions";
+import { useState } from "react";
+import type { GameOption, SimpleGame, Stream } from "../../types";
+import { useNextQueryParams } from "./hooks";
 
-async function searchIgdb(searchTerm: string, authToken: string) {
-  const formData = new FormData();
-  formData.append("searchTerm", searchTerm);
-  formData.append("authToken", authToken);
-  const res = await searchIgdbAction(formData);
-  if (res) {
-    console.log("searched ");
-  } else {
-    console.log("searched failed");
-  }
-  return res;
-}
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import SearchModal from "./searchModal";
+
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+  },
+});
 
 async function getStreams(gameIdsParam: string) {
   const formData = new FormData();
@@ -31,34 +27,21 @@ async function getStreams(gameIdsParam: string) {
   return res;
 }
 
+function getSimpleGame(gameOption: GameOption): SimpleGame {
+  return { name: gameOption.name, id: gameOption.id };
+}
+
 export default function Home() {
-  const [token, setToken] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [options, setOptions] = useState<GameOption[]>([]);
+  const { initialParams, updateParams } = useNextQueryParams({
+    blacklistedStreams: [],
+    blacklistedTags: [],
+    followedGames: [],
+  });
   const [streams, setStreams] = useState<Stream[]>([]);
-
-  const [followedGames, setFollowedGames] = useLocalStorage<GameOption[]>(
-    "followedGames",
-    []
-  );
-  const [bannedTags, setBannedTags] = useLocalStorage<string[]>(
-    "followedGames",
-    []
-  );
-
-  useEffect(() => {
-    async function fetchToken() {
-      const tokenRes = await getIgdbToken();
-      setToken(tokenRes);
-    }
-
-    fetchToken();
-  }, []);
-
-  const handleSearch = async () => {
-    const res = await searchIgdb(searchTerm, token);
-    setOptions(res || []);
-  };
+  const [followedGames, setFollowedGames] = useState<SimpleGame[]>(() => {
+    const stored = initialParams.get("followedGames");
+    return stored ? (JSON.parse(stored) as SimpleGame[]) : [];
+  });
 
   const handleStreamGet = async () => {
     const ids = followedGames.map((x) => x.id);
@@ -68,103 +51,77 @@ export default function Home() {
     setStreams(res);
   };
 
-  const toggleFollow = (clickedGame: GameOption) => {
+  const handleFollowedGameClick = (clickedGame: SimpleGame) => {
     if (followedGames.some((game) => game.id === clickedGame.id)) {
-      setFollowedGames(followedGames.filter((x) => x.id !== clickedGame.id));
+      const filtered = followedGames.filter((x) => x.id !== clickedGame.id);
+      updateParams({ followedGames: JSON.stringify(filtered) });
+      setFollowedGames(filtered);
+    }
+  };
+
+  const handleSearchedGameClick = (clickedGame: GameOption) => {
+    if (followedGames.some((game) => game.id === clickedGame.id)) {
+      const filtered = followedGames.filter((x) => x.id !== clickedGame.id);
+      updateParams({ followedGames: JSON.stringify(filtered) });
+      setFollowedGames(filtered);
     } else {
+      updateParams({
+        followedGames: JSON.stringify([
+          ...followedGames,
+          getSimpleGame(clickedGame),
+        ]),
+      });
       setFollowedGames((prev) => [...prev, clickedGame]);
     }
   };
 
   return (
-    <div>
+    <ThemeProvider theme={darkTheme}>
       <div>
         <div>
           <div>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <div>
+              <SearchModal
+                followedGames={followedGames}
+                searchGameClick={handleSearchedGameClick}
+                followedGameClick={handleFollowedGameClick}
+              />
 
-            <button onClick={() => handleSearch()} disabled={!token}>
-              Search gaems
-            </button>
+              <button onClick={() => handleStreamGet()}>Get streams</button>
+            </div>
 
-            <button onClick={() => handleStreamGet()}>Get streams</button>
+            <hr />
 
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+            <div className="flex gap-2 flex-wrap">
+              {streams.map((x, i) => {
+                return (
+                  <div key={x.user_id} className="w-min">
+                    <a key={i} href={"https://www.twitch.tv/" + x.user_login}>
+                      <Image
+                        src={x.thumbnail_url.replace(
+                          "{width}x{height}",
+                          "320x180"
+                        )}
+                        width={320}
+                        height={180}
+                        alt={x.user_name}
+                      />
+                    </a>
 
-          <hr />
-
-          <div className="flex gap-2 flex-wrap">
-            {streams.map((x, i) => {
-              return (
-                <div key={x.user_id} className="w-min">
-                  <a key={i} href={"https://www.twitch.tv/" + x.user_login}>
-                    <Image
-                      src={x.thumbnail_url.replace(
-                        "{width}x{height}",
-                        "320x180"
-                      )}
-                      width={320}
-                      height={180}
-                      alt={x.user_name}
-                    />
-                  </a>
-
-                  <div>
-                    {x.user_name} ({x.viewer_count} viewers)
+                    <div>
+                      {x.user_name} ({x.viewer_count} viewers)
+                    </div>
+                    <div>{x.game_name}</div>
+                    <div>
+                      {x.language}, {x.tags.join(", ")}
+                    </div>
                   </div>
-                  <div>{x.game_name}</div>
-                  <div>
-                    {x.language}, {x.tags.join(", ")}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-
-          <hr />
-
-          {followedGames.map((x, i) => {
-            const years = x.release_dates?.map((r: { y: number }) => r.y) || [];
-            const initialYear = Math.min(...years);
-            return (
-              <div
-                key={i}
-                onClick={() => toggleFollow(x)}
-                className={`cursor-pointer w-fit text-green-500`}
-              >
-                {`${x.name} (${initialYear})`}
-              </div>
-            );
-          })}
-
-          <hr />
-
-          {options.map((x, i) => {
-            const years = x.release_dates?.map((r: { y: number }) => r.y) || [];
-            const initialYear = Math.min(...years);
-            return (
-              <div
-                key={i}
-                onClick={() => toggleFollow(x)}
-                className={`cursor-pointer w-fit ${
-                  followedGames.some((game) => game.id === x.id)
-                    ? "text-green-500"
-                    : ""
-                }`}
-              >
-                {`${x.name} (${initialYear})`}
-              </div>
-            );
-          })}
         </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 }

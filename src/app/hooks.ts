@@ -1,33 +1,52 @@
-"use client";
+import { useCallback, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { forOwn } from "lodash";
 
-import { useState } from "react";
+export const useNextQueryParams = (defaultValues: Record<string, unknown>) => {
+  const initialParams = useSearchParams();
 
-type SetValue<T> = T | ((val: T) => T);
+  const defaultsRef = useRef<Record<string, unknown>>(defaultValues);
+  useEffect(() => {
+    defaultsRef.current = defaultValues;
+  }, [defaultValues]);
 
-export function useLocalStorage<T>(
-  key: string,
-  initialValue: T
-): [T, (value: SetValue<T>) => void] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.log(error);
-      return initialValue;
-    }
-  });
+  const initialObj: Record<string, string> = {};
+  if (initialParams) {
+    initialParams.forEach((value, key) => {
+      initialObj[key] = value;
+    });
+  }
+  const currentRef = useRef<Record<string, string>>(initialObj);
 
-  const setValue = (value: SetValue<T>) => {
-    try {
-      const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  const updateParams = useCallback((newParams: Record<string, unknown>) => {
+    const merged: Record<string, unknown> = {
+      ...currentRef.current,
+      ...newParams,
+    };
 
-  return [storedValue, setValue];
-}
+    forOwn(merged, (value, key) => {
+      if (defaultsRef.current && defaultsRef.current[key] === value) {
+        delete merged[key];
+      }
+    });
+
+    forOwn(merged, (value, key) => {
+      if (value === undefined || value === null) delete merged[key];
+    });
+
+    const entries: Record<string, string> = {};
+    Object.keys(merged).forEach((k) => {
+      entries[k] = String(merged[k]);
+    });
+
+    currentRef.current = entries;
+
+    const params = new URLSearchParams(entries).toString();
+    const newUrl = params
+      ? `?${params}`
+      : `${window.location.pathname}${window.location.hash || ""}`;
+    window.history.replaceState(null, "", newUrl);
+  }, []);
+
+  return { initialParams, updateParams };
+};
