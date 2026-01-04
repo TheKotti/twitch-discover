@@ -9,6 +9,7 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";
 import TextField from "@mui/material/TextField";
+import { Grid } from "@mui/material";
 
 const modalStyle = {
   position: "absolute",
@@ -79,8 +80,8 @@ export default function SearchModal(props: Props) {
         aria-describedby="modal-modal-description"
       >
         <Box sx={modalStyle}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <Grid container spacing={2}>
+            <Grid size={6}>
               <Typography id="modal-modal-title" variant="h6" component="h2">
                 Search games
               </Typography>
@@ -113,9 +114,9 @@ export default function SearchModal(props: Props) {
                   </div>
                 );
               })}
-            </div>
+            </Grid>
 
-            <div>
+            <Grid size={6}>
               <Typography id="modal-modal-title" variant="h6" component="h2">
                 Followed games
               </Typography>
@@ -131,8 +132,8 @@ export default function SearchModal(props: Props) {
                   </div>
                 );
               })}
-            </div>
-          </div>
+            </Grid>
+          </Grid>
         </Box>
       </Modal>
     </>

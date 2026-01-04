@@ -45,6 +45,10 @@ export async function getTwitchStreams(formData: FormData) {
   try {
     const authToken = await getIgdbToken();
     const gameIgdbIds = String(formData.get("gameIds"));
+    const blacklistedTags: string[] = JSON.parse(
+      String(formData.get("blacklistedTags"))
+    ).map((x: string) => x.toUpperCase());
+
     const idUrl = `https://api.twitch.tv/helix/games?${gameIgdbIds}`;
     console.log(idUrl);
     const idRes = await fetch(idUrl, {
@@ -72,7 +76,6 @@ export async function getTwitchStreams(formData: FormData) {
       },
     });
     const json = await res.json();
-    const blacklistedTags = [""].map((x) => x.toUpperCase());
     const blacklistedStreams = [""].map((x) => x.toUpperCase());
     const filtered = json.data.filter(
       (stream: Stream) =>

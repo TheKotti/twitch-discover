@@ -8,6 +8,7 @@ import { useNextQueryParams } from "./hooks";
 
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import SearchModal from "./searchModal";
+import { Chip } from "@mui/material";
 
 const darkTheme = createTheme({
   palette: {
@@ -15,14 +16,16 @@ const darkTheme = createTheme({
   },
 });
 
-async function getStreams(gameIdsParam: string) {
+async function getStreams(gameIdsParam: string, blacklistedTags: string[]) {
   const formData = new FormData();
   formData.append("gameIds", gameIdsParam);
+  formData.append("blacklistedTags", JSON.stringify(blacklistedTags));
   const res = await getTwitchStreams(formData);
   if (res) {
     console.log("aaa ");
   } else {
     console.log("wwww");
+    return [];
   }
   return res;
 }
@@ -42,11 +45,15 @@ export default function Home() {
     const stored = initialParams.get("followedGames");
     return stored ? (JSON.parse(stored) as SimpleGame[]) : [];
   });
+  const [blacklistedTags, setBlacklistedTags] = useState<string[]>(() => {
+    const stored = initialParams.get("blacklistedTags");
+    return stored ? (JSON.parse(stored) as string[]) : [];
+  });
 
   const handleStreamGet = async () => {
     const ids = followedGames.map((x) => x.id);
     const idString = "igdb_id=" + ids.join("&igdb_id=");
-    const res = await getStreams(idString);
+    const res = await getStreams(idString, blacklistedTags);
     console.log(res);
     setStreams(res);
   };
@@ -72,6 +79,20 @@ export default function Home() {
         ]),
       });
       setFollowedGames((prev) => [...prev, clickedGame]);
+    }
+  };
+
+  const handleTagBlackListToggle = (tag: string) => {
+    if (blacklistedTags.includes(tag)) {
+      const filtered = blacklistedTags.filter((x) => x !== tag);
+      updateParams({ blacklistedTags: filtered });
+      setBlacklistedTags(filtered);
+    } else {
+      console.log("asdasd", [...blacklistedTags, tag]);
+      updateParams({
+        blacklistedTags: JSON.stringify([...blacklistedTags, tag]),
+      });
+      setBlacklistedTags((prev) => [...prev, tag]);
     }
   };
 
@@ -108,12 +129,24 @@ export default function Home() {
                       />
                     </a>
 
-                    <div>
+                    <div className="text-sm">{x.title}</div>
+
+                    <div className="text-base text-cyan-500">
                       {x.user_name} ({x.viewer_count} viewers)
                     </div>
-                    <div>{x.game_name}</div>
-                    <div>
-                      {x.language}, {x.tags.join(", ")}
+
+                    <div className="text-base">{x.game_name}</div>
+
+                    <div className="flex gap-1 flex-wrap">
+                      {x.tags.map((tag) => {
+                        return (
+                          <Chip
+                            key={tag}
+                            label={tag}
+                            onDelete={() => handleTagBlackListToggle(tag)}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );
