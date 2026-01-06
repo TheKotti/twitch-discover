@@ -18,6 +18,8 @@ const modalStyle = {
   left: "50%",
   transform: "translate(-50%, -50%)",
   width: "80vw",
+  maxHeight: "90vh",
+  overflow: "auto",
   bgcolor: "background.paper",
   border: "2px solid #000",
   boxShadow: 24,
@@ -84,19 +86,21 @@ export default function SearchModal(props: Props) {
         aria-describedby="modal-modal-description"
       >
         <Box sx={modalStyle}>
-          <Button
-            onClick={() => downloadLocalStorage("twitch_follow.json")}
-            variant="contained"
-          >
-            Download settings
-          </Button>
+          <div className="flex gap-2 justify-end">
+            <Button
+              onClick={() => downloadLocalStorage("twitch_follow.json")}
+              variant="contained"
+            >
+              Download settings
+            </Button>
 
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="contained"
-          >
-            Upload settings
-          </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="contained"
+            >
+              Upload settings
+            </Button>
+          </div>
 
           <input
             type="file"
@@ -181,17 +185,19 @@ export default function SearchModal(props: Props) {
                 Followed games
               </Typography>
 
-              {followedGames.map((x, i) => {
-                return (
-                  <div
-                    key={i}
-                    onClick={() => followedGameClick(x)}
-                    className={`cursor-pointer w-fit text-green-500`}
-                  >
-                    {`${x.name}`}
-                  </div>
-                );
-              })}
+              {followedGames
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((x, i) => {
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => followedGameClick(x)}
+                      className={`cursor-pointer w-fit text-green-500`}
+                    >
+                      {`${x.name}`}
+                    </div>
+                  );
+                })}
             </Grid>
           </Grid>
         </Box>
