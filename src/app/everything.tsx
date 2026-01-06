@@ -4,15 +4,20 @@ import Image from "next/image";
 import { getTwitchStreams } from "./actions";
 import { useState } from "react";
 import type { GameOption, SimpleGame, Stream } from "../../types";
-import { useNextQueryParams } from "./hooks";
+import { useLocalStorage } from "./hooks";
 
 import SearchModal from "./searchModal";
 import { Chip } from "@mui/material";
 
-async function getStreams(gameIdsParam: string, blacklistedTags: string[]) {
+async function getStreams(
+  gameIdsParam: string,
+  blacklistedTags: string[],
+  blacklistedUsers: string[]
+) {
   const formData = new FormData();
   formData.append("gameIds", gameIdsParam);
   formData.append("blacklistedTags", JSON.stringify(blacklistedTags));
+  formData.append("blacklistedUsers", JSON.stringify(blacklistedUsers));
   const res = await getTwitchStreams(formData);
   if (res) {
     console.log("aaa ");
@@ -23,30 +28,21 @@ async function getStreams(gameIdsParam: string, blacklistedTags: string[]) {
   return res;
 }
 
-function getSimpleGame(gameOption: GameOption): SimpleGame {
-  return { name: gameOption.name, id: gameOption.id };
-}
-
 export default function Everything() {
-  const { initialParams, updateParams } = useNextQueryParams({
-    blacklistedStreams: [],
-    blacklistedTags: [],
-    followedGames: [],
-  });
+  const { value: followedGames, setValue: setFollowedGames } = useLocalStorage<
+    GameOption[]
+  >("followedGames", []);
+  const { value: blacklistedTags, setValue: setBlacklistedTags } =
+    useLocalStorage<string[]>("blacklistedTags", []);
+  const { value: blacklistedUsers, setValue: setBlacklistedUsers } =
+    useLocalStorage<string[]>("blacklistedUsers", []);
+
   const [streams, setStreams] = useState<Stream[]>([]);
-  const [followedGames, setFollowedGames] = useState<SimpleGame[]>(() => {
-    const stored = initialParams.get("followedGames");
-    return stored ? (JSON.parse(stored) as SimpleGame[]) : [];
-  });
-  const [blacklistedTags, setBlacklistedTags] = useState<string[]>(() => {
-    const stored = initialParams.get("blacklistedTags");
-    return stored ? (JSON.parse(stored) as string[]) : [];
-  });
 
   const handleStreamGet = async () => {
     const ids = followedGames.map((x) => x.id);
     const idString = "igdb_id=" + ids.join("&igdb_id=");
-    const res = await getStreams(idString, blacklistedTags);
+    const res = await getStreams(idString, blacklistedTags, blacklistedUsers);
     console.log(res);
     setStreams(res);
   };
@@ -54,7 +50,6 @@ export default function Everything() {
   const handleFollowedGameClick = (clickedGame: SimpleGame) => {
     if (followedGames.some((game) => game.id === clickedGame.id)) {
       const filtered = followedGames.filter((x) => x.id !== clickedGame.id);
-      updateParams({ followedGames: JSON.stringify(filtered) });
       setFollowedGames(filtered);
     }
   };
@@ -62,30 +57,27 @@ export default function Everything() {
   const handleSearchedGameClick = (clickedGame: GameOption) => {
     if (followedGames.some((game) => game.id === clickedGame.id)) {
       const filtered = followedGames.filter((x) => x.id !== clickedGame.id);
-      updateParams({ followedGames: JSON.stringify(filtered) });
       setFollowedGames(filtered);
     } else {
-      updateParams({
-        followedGames: JSON.stringify([
-          ...followedGames,
-          getSimpleGame(clickedGame),
-        ]),
-      });
-      setFollowedGames((prev) => [...prev, clickedGame]);
+      setFollowedGames([...followedGames, clickedGame]);
     }
   };
 
-  const handleTagBlackListToggle = (tag: string) => {
+  const handleTagBlacklistToggle = (tag: string) => {
     if (blacklistedTags.includes(tag)) {
       const filtered = blacklistedTags.filter((x) => x !== tag);
-      updateParams({ blacklistedTags: filtered });
       setBlacklistedTags(filtered);
     } else {
-      console.log("asdasd", [...blacklistedTags, tag]);
-      updateParams({
-        blacklistedTags: JSON.stringify([...blacklistedTags, tag]),
-      });
       setBlacklistedTags((prev) => [...prev, tag]);
+    }
+  };
+
+  const handleUseBlacklist = (username: string) => {
+    if (blacklistedUsers.includes(username)) {
+      const filtered = blacklistedUsers.filter((x) => x !== username);
+      setBlacklistedUsers(filtered);
+    } else {
+      setBlacklistedUsers((prev) => [...prev, username]);
     }
   };
 
@@ -123,19 +115,26 @@ export default function Everything() {
 
                   <div className="text-sm">{x.title}</div>
 
-                  <div className="text-base text-cyan-500">
-                    {x.user_name} ({x.viewer_count} viewers)
+                  <div className="flex gap-1 text-base text-cyan-500">
+                    <span>
+                      {x.user_name} ({x.viewer_count} viewers)
+                    </span>
+                    <Chip
+                      label="Hide"
+                      size="small"
+                      onDelete={() => handleUseBlacklist(x.user_name)}
+                    />
                   </div>
 
                   <div className="text-base">{x.game_name}</div>
 
                   <div className="flex gap-1 flex-wrap">
-                    {x.tags.map((tag) => {
+                    {x.tags.map((tag, i) => {
                       return (
                         <Chip
-                          key={tag}
+                          key={i}
                           label={tag}
-                          onDelete={() => handleTagBlackListToggle(tag)}
+                          onDelete={() => handleTagBlacklistToggle(tag)}
                         />
                       );
                     })}

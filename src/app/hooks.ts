@@ -1,52 +1,87 @@
-import { useCallback, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { forOwn } from "lodash";
+import { useState, useCallback, useEffect } from "react";
 
-export const useNextQueryParams = (defaultValues: Record<string, unknown>) => {
-  const initialParams = useSearchParams();
+/**
+ * useLocalStorage - React hook that syncs a value with localStorage.
+ * - Generic over T
+ * - SSR-safe (no access to window during server rendering)
+ * - Keeps state in sync with 'storage' events across tabs
+ */
+export function useLocalStorage<T>(key: string, initialValue: T | (() => T)) {
+  const readValue = useCallback((): T => {
+    if (typeof window === "undefined") {
+      return typeof initialValue === "function"
+        ? (initialValue as () => T)()
+        : (initialValue as T);
+    }
+    try {
+      const item = window.localStorage.getItem(key);
+      return item
+        ? (JSON.parse(item) as T)
+        : typeof initialValue === "function"
+        ? (initialValue as () => T)()
+        : (initialValue as T);
+    } catch {
+      return typeof initialValue === "function"
+        ? (initialValue as () => T)()
+        : (initialValue as T);
+    }
+  }, [key, initialValue]);
 
-  const defaultsRef = useRef<Record<string, unknown>>(defaultValues);
+  const [storedValue, setStoredValue] = useState<T>(() => readValue());
+
   useEffect(() => {
-    defaultsRef.current = defaultValues;
-  }, [defaultValues]);
+    try {
+      window.localStorage.setItem(key, JSON.stringify(storedValue));
+    } catch {}
+  }, [key, storedValue]);
 
-  const initialObj: Record<string, string> = {};
-  if (initialParams) {
-    initialParams.forEach((value, key) => {
-      initialObj[key] = value;
-    });
-  }
-  const currentRef = useRef<Record<string, string>>(initialObj);
-
-  const updateParams = useCallback((newParams: Record<string, unknown>) => {
-    const merged: Record<string, unknown> = {
-      ...currentRef.current,
-      ...newParams,
-    };
-
-    forOwn(merged, (value, key) => {
-      if (defaultsRef.current && defaultsRef.current[key] === value) {
-        delete merged[key];
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === key) {
+        try {
+          setStoredValue(
+            e.newValue
+              ? (JSON.parse(e.newValue) as T)
+              : typeof initialValue === "function"
+              ? (initialValue as () => T)()
+              : (initialValue as T)
+          );
+        } catch {
+          // ignore parse error
+        }
       }
-    });
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [key, initialValue]);
 
-    forOwn(merged, (value, key) => {
-      if (value === undefined || value === null) delete merged[key];
-    });
+  const setValue = useCallback(
+    (value: T | ((prev: T) => T)) => {
+      setStoredValue((prev) => {
+        const newValue = value instanceof Function ? value(prev) : value;
+        try {
+          window.localStorage.setItem(key, JSON.stringify(newValue));
+        } catch {}
+        return newValue;
+      });
+    },
+    [key]
+  );
 
-    const entries: Record<string, string> = {};
-    Object.keys(merged).forEach((k) => {
-      entries[k] = String(merged[k]);
-    });
+  const getValue = useCallback(() => {
+    return readValue();
+  }, [readValue]);
 
-    currentRef.current = entries;
+  const removeValue = useCallback(() => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {}
+    setStoredValue(
+      typeof initialValue === "function"
+        ? (initialValue as () => T)()
+        : (initialValue as T)
+    );
+  }, [key, initialValue]);
 
-    const params = new URLSearchParams(entries).toString();
-    const newUrl = params
-      ? `?${params}`
-      : `${window.location.pathname}${window.location.hash || ""}`;
-    window.history.replaceState(null, "", newUrl);
-  }, []);
-
-  return { initialParams, updateParams };
-};
+  return { value: storedValue, setValue, getValue, removeValue };
+}

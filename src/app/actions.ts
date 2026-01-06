@@ -48,6 +48,9 @@ export async function getTwitchStreams(formData: FormData) {
     const blacklistedTags: string[] = JSON.parse(
       String(formData.get("blacklistedTags"))
     ).map((x: string) => x.toUpperCase());
+    const blacklistedUsers: string[] = JSON.parse(
+      String(formData.get("blacklistedUsers"))
+    ).map((x: string) => x.toUpperCase());
 
     const idUrl = `https://api.twitch.tv/helix/games?${gameIgdbIds}`;
     console.log(idUrl);
@@ -76,13 +79,12 @@ export async function getTwitchStreams(formData: FormData) {
       },
     });
     const json = await res.json();
-    const blacklistedStreams = [""].map((x) => x.toUpperCase());
     const filtered = json.data.filter(
       (stream: Stream) =>
         !stream.tags.some(
           (tag: string) =>
             blacklistedTags.includes(tag.toUpperCase()) ||
-            blacklistedStreams.includes(stream.user_name.toUpperCase())
+            blacklistedUsers.includes(stream.user_name.toUpperCase())
         )
     );
     console.log("streams", filtered);

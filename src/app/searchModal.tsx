@@ -71,7 +71,9 @@ export default function SearchModal(props: Props) {
 
   return (
     <>
-      <Button onClick={() => setGameModalOpen(true)}>Open modal</Button>
+      <Button onClick={() => setGameModalOpen(true)}>
+        Manage followed games
+      </Button>
 
       <Modal
         open={gameModalOpen}
