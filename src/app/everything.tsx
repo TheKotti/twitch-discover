@@ -8,6 +8,7 @@ import { useLocalStorage } from "./hooks";
 
 import SearchModal from "./searchModal";
 import { Chip } from "@mui/material";
+import { getSimpleGame } from "./helpers";
 
 async function getStreams(
   gameIdsParam: string,
@@ -30,7 +31,7 @@ async function getStreams(
 
 export default function Everything() {
   const { value: followedGames, setValue: setFollowedGames } = useLocalStorage<
-    GameOption[]
+    SimpleGame[]
   >("followedGames", []);
   const { value: blacklistedTags, setValue: setBlacklistedTags } =
     useLocalStorage<string[]>("blacklistedTags", []);
@@ -59,7 +60,7 @@ export default function Everything() {
       const filtered = followedGames.filter((x) => x.id !== clickedGame.id);
       setFollowedGames(filtered);
     } else {
-      setFollowedGames([...followedGames, clickedGame]);
+      setFollowedGames([...followedGames, getSimpleGame(clickedGame)]);
     }
   };
 

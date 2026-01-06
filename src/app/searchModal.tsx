@@ -1,7 +1,7 @@
 "use client";
 
 import { getIgdbToken, searchIgdbAction } from "./actions";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { GameOption, SimpleGame } from "../../types";
 
 import Box from "@mui/material/Box";
@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";
 import TextField from "@mui/material/TextField";
 import { Grid } from "@mui/material";
+import { downloadLocalStorage, uploadLocalStorage } from "./hooks";
 
 const modalStyle = {
   position: "absolute",
@@ -50,6 +51,7 @@ export default function SearchModal(props: Props) {
   const [options, setOptions] = useState<GameOption[]>([]);
 
   const [gameModalOpen, setGameModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     async function fetchToken() {
@@ -82,6 +84,62 @@ export default function SearchModal(props: Props) {
         aria-describedby="modal-modal-description"
       >
         <Box sx={modalStyle}>
+          <Button
+            onClick={() => downloadLocalStorage("twitch_follow.json")}
+            variant="contained"
+          >
+            Download settings
+          </Button>
+
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="contained"
+          >
+            Upload settings
+          </Button>
+
+          <input
+            type="file"
+            accept="application/json"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const text = await file.text();
+                let parsed: unknown;
+                try {
+                  parsed = JSON.parse(text);
+                } catch {
+                  return;
+                }
+
+                const isEmptyObject =
+                  parsed === null ||
+                  (typeof parsed === "object" &&
+                    !Array.isArray(parsed) &&
+                    Object.keys(parsed as Record<string, unknown>).length ===
+                      0) ||
+                  (Array.isArray(parsed) && (parsed as unknown[]).length === 0);
+
+                if (isEmptyObject) {
+                  return;
+                }
+
+                const ok = uploadLocalStorage(text, { merge: false });
+                if (ok) {
+                  console.log("uploaded localStorage from file");
+                } else {
+                }
+              } catch (err) {
+                console.error(err);
+              } finally {
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }
+            }}
+          />
+
           <Grid container spacing={2}>
             <Grid size={6}>
               <Typography id="modal-modal-title" variant="h6" component="h2">
